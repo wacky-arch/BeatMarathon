@@ -5,6 +5,7 @@ using HMUI;
 using RealtimeRankMarathon.Models;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 namespace RealtimeRankMarathon.UI
 {
@@ -12,8 +13,11 @@ namespace RealtimeRankMarathon.UI
 
     public class RankPlateView
     {
-        private const float AvatarIconSize = 0.28f;
+        private const float AvatarIconSize = 0.36f;
         private const float ElementGap = 0.08f;
+        private const float TextContainerWidth = 8.0f;
+        private const float UpperLineOffsetY = 0.12f;
+        private const float LowerLineOffsetY = -0.12f;
         private static readonly Vector3 ShadowOffset = new Vector3(0.012f, -0.012f, 0.004f);
 
         private static readonly Color NormalRivalColor = Color.white;
@@ -24,22 +28,22 @@ namespace RealtimeRankMarathon.UI
         private readonly GameObject _rootObject;
         private readonly Transform _rootTransform;
 
-        // #順位 表示用 (アイコン画像の左側に配置)
-        private readonly GameObject _rankTextObj;
-        private readonly GameObject _rankShadowObj;
-        private readonly TextMeshPro _rankTextMesh;
-        private readonly TextMeshPro _rankShadowTextMesh;
-
-        // アイコン画像表示用 (WorldSpace Canvas + HMUI.ImageView で UINoGlow シェーダーに完全対応)
+        // アイコン画像表示用 (内側に配置。WorldSpace Canvas + HMUI.ImageView で UINoGlow シェーダーに完全対応)
         private readonly GameObject _avatarObject;
-        private readonly Transform _avatarTransform;
+        private readonly RectTransform _avatarRect;
         private readonly ImageView _avatarImage;
 
-        // プレイヤー名・精度・精度差 表示用 (アイコン画像の右側に配置、またはアイコン非表示時は全体を表示)
-        private readonly GameObject _bodyTextObj;
-        private readonly GameObject _bodyShadowObj;
-        private readonly TextMeshPro _textMesh;
-        private readonly TextMeshPro _outlineShadowTextMesh;
+        // 上段テキスト: プレイヤー名
+        private readonly GameObject _upperTextObj;
+        private readonly GameObject _upperShadowObj;
+        private readonly TextMeshPro _upperTextMesh;
+        private readonly TextMeshPro _upperShadowTextMesh;
+
+        // 下段テキスト: 順位・精度・精度差
+        private readonly GameObject _lowerTextObj;
+        private readonly GameObject _lowerShadowObj;
+        private readonly TextMeshPro _lowerTextMesh;
+        private readonly TextMeshPro _lowerShadowTextMesh;
 
         private readonly StringBuilder _sb = new StringBuilder(64);
 
@@ -65,28 +69,10 @@ namespace RealtimeRankMarathon.UI
             _rootTransform = _rootObject.transform;
             _rootTransform.SetParent(parentTransform, false);
 
-            // 1. #順位 用 TextMeshPro (黒縁影 + メイン)
-            _rankShadowObj = new GameObject("RankNumShadow");
-            _rankShadowObj.transform.SetParent(_rootTransform, false);
-            _rankShadowTextMesh = _rankShadowObj.AddComponent<TextMeshPro>();
-            ConfigureTmp(_rankShadowTextMesh, sharedFont, sharedOutlineMaterial, new Color(0f, 0f, 0f, 0.95f), 10);
-
-            _rankTextObj = new GameObject("RankNumText");
-            _rankTextObj.transform.SetParent(_rootTransform, false);
-            _rankTextMesh = _rankTextObj.AddComponent<TextMeshPro>();
-            ConfigureTmp(_rankTextMesh, sharedFont, sharedOutlineMaterial, NormalRivalColor, 11);
-
-            _rankShadowObj.SetActive(false);
-            _rankTextObj.SetActive(false);
-
-            // 2. 丸型マスク済みアイコン表示用 WorldSpace Canvas + HMUI.ImageView (Beat Saber UINoGlow 対応)
+            // 1. 丸型マスク済みアイコン表示用 WorldSpace Canvas + HMUI.ImageView
+            // ※ AddComponent<Canvas>() / AddComponent<ImageView>() 実行後に RectTransform を取得・親設定する
             _avatarObject = new GameObject("AvatarIcon");
             _avatarObject.layer = 5; // UI Layer
-            _avatarTransform = _avatarObject.transform;
-            _avatarTransform.SetParent(_rootTransform, false);
-            _avatarTransform.localPosition = Vector3.zero;
-            _avatarTransform.localRotation = Quaternion.identity;
-            _avatarTransform.localScale = new Vector3(AvatarIconSize, AvatarIconSize, 1f);
 
             var avatarCanvas = _avatarObject.AddComponent<Canvas>();
             avatarCanvas.renderMode = RenderMode.WorldSpace;
@@ -97,33 +83,54 @@ namespace RealtimeRankMarathon.UI
             {
                 _avatarImage.material = sharedUiNoGlowMaterial;
             }
+            _avatarImage.type = Image.Type.Simple;
             _avatarImage.raycastTarget = false;
             _avatarImage.preserveAspect = true;
 
-            var avatarRect = _avatarImage.rectTransform;
-            avatarRect.sizeDelta = new Vector2(1.0f, 1.0f);
-            avatarRect.anchorMin = new Vector2(0.5f, 0.5f);
-            avatarRect.anchorMax = new Vector2(0.5f, 0.5f);
-            avatarRect.pivot = new Vector2(0.5f, 0.5f);
-            avatarRect.localPosition = Vector3.zero;
+            _avatarRect = _avatarImage.rectTransform;
+            _avatarRect.SetParent(_rootTransform, false);
+            _avatarRect.sizeDelta = Vector2.one;
+            _avatarRect.anchorMin = new Vector2(0.5f, 0.5f);
+            _avatarRect.anchorMax = new Vector2(0.5f, 0.5f);
+            _avatarRect.pivot = new Vector2(0.5f, 0.5f);
+            _avatarRect.localPosition = Vector3.zero;
+            _avatarRect.localRotation = Quaternion.identity;
+            _avatarRect.localScale = new Vector3(AvatarIconSize, AvatarIconSize, 1f);
 
             _avatarObject.SetActive(false);
 
-            // 3. プレイヤー名・精度・自分との精度差 用 TextMeshPro (黒縁影 + メイン)
-            _bodyShadowObj = new GameObject("RankBodyShadow");
-            _bodyShadowObj.transform.SetParent(_rootTransform, false);
-            _outlineShadowTextMesh = _bodyShadowObj.AddComponent<TextMeshPro>();
-            ConfigureTmp(_outlineShadowTextMesh, sharedFont, sharedOutlineMaterial, new Color(0f, 0f, 0f, 0.95f), 10);
+            // 2. 上段 (プレイヤー名) 用 TextMeshPro (黒縁影 + メイン)
+            _upperShadowObj = new GameObject("UpperNameShadow");
+            _upperShadowTextMesh = _upperShadowObj.AddComponent<TextMeshPro>();
+            _upperShadowTextMesh.rectTransform.SetParent(_rootTransform, false);
+            ConfigureTmp(_upperShadowTextMesh, sharedFont, sharedOutlineMaterial, 2.3f, new Color(0f, 0f, 0f, 0.95f), 10);
 
-            _bodyTextObj = new GameObject("RankBodyText");
-            _bodyTextObj.transform.SetParent(_rootTransform, false);
-            _textMesh = _bodyTextObj.AddComponent<TextMeshPro>();
-            ConfigureTmp(_textMesh, sharedFont, sharedOutlineMaterial, NormalRivalColor, 11);
+            _upperTextObj = new GameObject("UpperNameText");
+            _upperTextMesh = _upperTextObj.AddComponent<TextMeshPro>();
+            _upperTextMesh.rectTransform.SetParent(_rootTransform, false);
+            ConfigureTmp(_upperTextMesh, sharedFont, sharedOutlineMaterial, 2.3f, NormalRivalColor, 11);
+
+            // 3. 下段 (順位・精度・精度差) 用 TextMeshPro (黒縁影 + メイン)
+            _lowerShadowObj = new GameObject("LowerStatsShadow");
+            _lowerShadowTextMesh = _lowerShadowObj.AddComponent<TextMeshPro>();
+            _lowerShadowTextMesh.rectTransform.SetParent(_rootTransform, false);
+            ConfigureTmp(_lowerShadowTextMesh, sharedFont, sharedOutlineMaterial, 2.0f, new Color(0f, 0f, 0f, 0.95f), 10);
+
+            _lowerTextObj = new GameObject("LowerStatsText");
+            _lowerTextMesh = _lowerTextObj.AddComponent<TextMeshPro>();
+            _lowerTextMesh.rectTransform.SetParent(_rootTransform, false);
+            ConfigureTmp(_lowerTextMesh, sharedFont, sharedOutlineMaterial, 2.0f, NormalRivalColor, 11);
 
             _rootObject.SetActive(false);
         }
 
-        private static void ConfigureTmp(TextMeshPro tmp, TMP_FontAsset sharedFont, Material sharedMaterial, Color color, int sortingOrder)
+        private static void ConfigureTmp(
+            TextMeshPro tmp,
+            TMP_FontAsset sharedFont,
+            Material sharedMaterial,
+            float fontSize,
+            Color color,
+            int sortingOrder)
         {
             if (sharedFont != null)
             {
@@ -134,7 +141,7 @@ namespace RealtimeRankMarathon.UI
                 tmp.fontSharedMaterial = sharedMaterial;
             }
 
-            tmp.fontSize = 2.4f;
+            tmp.fontSize = fontSize;
             tmp.alignment = TextAlignmentOptions.MidlineLeft;
             tmp.enableWordWrapping = false;
             tmp.overflowMode = TextOverflowModes.Overflow;
@@ -143,8 +150,11 @@ namespace RealtimeRankMarathon.UI
             tmp.sortingOrder = sortingOrder;
 
             var rect = tmp.rectTransform;
-            rect.sizeDelta = new Vector2(6.0f, 0.6f);
-            rect.pivot = new Vector2(0f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(TextContainerWidth, 0.5f);
+            rect.localPosition = Vector3.zero;
+            rect.localRotation = Quaternion.identity;
+            rect.localScale = Vector3.one;
         }
 
         /// <summary>
@@ -232,7 +242,7 @@ namespace RealtimeRankMarathon.UI
                 _currentTargetLocalRot = Quaternion.Euler(_boundEntry.AssignedGroundRotationX, 0f, 0f);
                 _rootTransform.localScale = Vector3.one;
 
-                // 左側レーン (Slot 0: 左外側, Slot 2: 左内側) は X < 0 なので右詰め（左側へ伸ばす）
+                // 左側レーン (Slot 0: 左外側, Slot 2: 左内側) は X < 0 なので右詰め（内側にアイコン、左外側へテキスト）
                 isLeftSide = _boundEntry.AssignedGroundX < 0f;
             }
             else
@@ -316,7 +326,7 @@ namespace RealtimeRankMarathon.UI
                 _lastFormattedDeltaCent = deltaCent;
                 _lastDisplayMask = displayMask;
 
-                RebuildTextsAndHorizontalLayout(rivalAccPercent, deltaPercent, showAvatar, isLeftSide, config);
+                RebuildTwoRowLayout(rivalAccPercent, deltaPercent, showAvatar, isLeftSide, config);
             }
 
             // 追い抜き時 (Δ% < 0) はハイライトカラー、前方時は通常色（自己ベストはシアン）
@@ -333,16 +343,16 @@ namespace RealtimeRankMarathon.UI
             baseColor.a = alpha;
             Color shadowColor = new Color(0f, 0f, 0f, alpha * 0.95f);
 
-            if (_rankTextObj.activeSelf)
+            if (_upperTextObj.activeSelf)
             {
-                _rankTextMesh.color = baseColor;
-                _rankShadowTextMesh.color = shadowColor;
+                _upperTextMesh.color = baseColor;
+                _upperShadowTextMesh.color = shadowColor;
             }
 
-            if (_bodyTextObj.activeSelf)
+            if (_lowerTextObj.activeSelf)
             {
-                _textMesh.color = baseColor;
-                _outlineShadowTextMesh.color = shadowColor;
+                _lowerTextMesh.color = baseColor;
+                _lowerShadowTextMesh.color = shadowColor;
             }
 
             if (_avatarObject.activeSelf)
@@ -354,200 +364,202 @@ namespace RealtimeRankMarathon.UI
         }
 
         /// <summary>
-        /// 並び順「#順位　アイコン画像　プレイヤー名　精度　自分との精度差」を維持しつつ、
-        /// 左側配置時は右詰め（左方向 -X へ伸ばす）、右側配置時は左詰め（右方向 +X へ伸ばす）に配置する
+        /// 内側（ノーツレーンに近い側 = localX: 0）にアイコンを配置し、その外側に2段構成のテキストを配置する：
+        /// ・右側レーン (左詰め):
+        ///   [アイコン]  上段: 名前
+        ///               下段: #順位  精度%  (+精度差%)
+        /// ・左側レーン (右詰め・逆順):
+        ///         上段: 名前                  [アイコン]
+        ///   下段: (+精度差%)  精度%  #順位    [アイコン]
         /// </summary>
-        private void RebuildTextsAndHorizontalLayout(
+        private void RebuildTwoRowLayout(
             float rivalAccPercent,
             float deltaPercent,
             bool showAvatar,
             bool isLeftSide,
             PluginConfig config)
         {
-            // アイコン非表示時は、有効な全テキスト項目を1つの TextMeshPro にまとめて描画する
-            if (!showAvatar)
+            string upperStr = BuildUpperNameString(config.ShowPlayerName, isLeftSide);
+            string lowerStr = BuildLowerStatsString(
+                config.ShowRank,
+                config.ShowAccuracy,
+                config.ShowDelta,
+                rivalAccPercent,
+                deltaPercent,
+                isLeftSide);
+
+            bool hasUpper = !string.IsNullOrEmpty(upperStr);
+            bool hasLower = !string.IsNullOrEmpty(lowerStr);
+
+            // 1. アイコンを内側（localX = 0 側）に配置
+            float textAnchorX = 0f;
+            if (showAvatar)
             {
-                if (_rankTextObj.activeSelf) _rankTextObj.SetActive(false);
-                if (_rankShadowObj.activeSelf) _rankShadowObj.SetActive(false);
+                if (!_avatarObject.activeSelf) _avatarObject.SetActive(true);
+
+                if (isLeftSide)
+                {
+                    // 左側レーン: 右端 (localX = 0) が内側なので、アイコン中心は -AvatarIconSize * 0.5f
+                    _avatarRect.localPosition = new Vector3(-(AvatarIconSize * 0.5f), 0f, 0f);
+                    textAnchorX = -(AvatarIconSize + ElementGap);
+                }
+                else
+                {
+                    // 右側レーン: 左端 (localX = 0) が内側なので、アイコン中心は +AvatarIconSize * 0.5f
+                    _avatarRect.localPosition = new Vector3(AvatarIconSize * 0.5f, 0f, 0f);
+                    textAnchorX = AvatarIconSize + ElementGap;
+                }
+            }
+            else
+            {
                 if (_avatarObject.activeSelf) _avatarObject.SetActive(false);
-
-                string combinedText = BuildBodyString(
-                    includeRank: config.ShowRank,
-                    includeName: config.ShowPlayerName,
-                    includeAccuracy: config.ShowAccuracy,
-                    includeDelta: config.ShowDelta,
-                    rivalAccPercent: rivalAccPercent,
-                    deltaPercent: deltaPercent);
-
-                if (string.IsNullOrEmpty(combinedText))
-                {
-                    if (_bodyTextObj.activeSelf) _bodyTextObj.SetActive(false);
-                    if (_bodyShadowObj.activeSelf) _bodyShadowObj.SetActive(false);
-                    return;
-                }
-
-                if (!_bodyTextObj.activeSelf) _bodyTextObj.SetActive(true);
-                if (!_bodyShadowObj.activeSelf) _bodyShadowObj.SetActive(true);
-
-                _textMesh.text = combinedText;
-                _outlineShadowTextMesh.text = combinedText;
-
-                // 左側配置時は右詰め (pivot X = 1, MidlineRight)、右側配置時は左詰め (pivot X = 0, MidlineLeft)
-                ApplyTextAlignmentAndPosition(_textMesh, _outlineShadowTextMesh, rightAligned: isLeftSide, localX: 0f);
-                return;
+                textAnchorX = 0f;
             }
 
-            // アイコン表示時: [#順位] -> [アイコン画像] -> [プレイヤー名 精度 自分との精度差]
-            if (!_avatarObject.activeSelf)
+            // 2. 上段・下段のY座標（両方ある場合は上下2段、片方のみの場合は中央 Y = 0）
+            float upperY = (hasUpper && hasLower) ? UpperLineOffsetY : 0f;
+            float lowerY = (hasUpper && hasLower) ? LowerLineOffsetY : 0f;
+
+            // 3. 上段（プレイヤー名）の設定
+            if (hasUpper)
             {
-                _avatarObject.SetActive(true);
-            }
+                if (!_upperTextObj.activeSelf) _upperTextObj.SetActive(true);
+                if (!_upperShadowObj.activeSelf) _upperShadowObj.SetActive(true);
 
-            bool hasRank = config.ShowRank;
-            string rankStr = hasRank
-                ? string.Format(CultureInfo.InvariantCulture, "#{0}", _boundEntry.Rank)
-                : string.Empty;
-
-            string bodyStr = BuildBodyString(
-                includeRank: false,
-                includeName: config.ShowPlayerName,
-                includeAccuracy: config.ShowAccuracy,
-                includeDelta: config.ShowDelta,
-                rivalAccPercent: rivalAccPercent,
-                deltaPercent: deltaPercent);
-            bool hasBody = !string.IsNullOrEmpty(bodyStr);
-
-            if (hasRank)
-            {
-                if (!_rankTextObj.activeSelf) _rankTextObj.SetActive(true);
-                if (!_rankShadowObj.activeSelf) _rankShadowObj.SetActive(true);
-                _rankTextMesh.text = rankStr;
-                _rankShadowTextMesh.text = rankStr;
+                _upperTextMesh.text = upperStr;
+                _upperShadowTextMesh.text = upperStr;
+                ApplyLineAlignmentAndPosition(_upperTextMesh, _upperShadowTextMesh, rightAligned: isLeftSide, anchorX: textAnchorX, localY: upperY);
             }
             else
             {
-                if (_rankTextObj.activeSelf) _rankTextObj.SetActive(false);
-                if (_rankShadowObj.activeSelf) _rankShadowObj.SetActive(false);
+                if (_upperTextObj.activeSelf) _upperTextObj.SetActive(false);
+                if (_upperShadowObj.activeSelf) _upperShadowObj.SetActive(false);
             }
 
-            if (hasBody)
+            // 4. 下段（順位・精度・精度差）の設定
+            if (hasLower)
             {
-                if (!_bodyTextObj.activeSelf) _bodyTextObj.SetActive(true);
-                if (!_bodyShadowObj.activeSelf) _bodyShadowObj.SetActive(true);
-                _textMesh.text = bodyStr;
-                _outlineShadowTextMesh.text = bodyStr;
-            }
-            else
-            {
-                if (_bodyTextObj.activeSelf) _bodyTextObj.SetActive(false);
-                if (_bodyShadowObj.activeSelf) _bodyShadowObj.SetActive(false);
-            }
+                if (!_lowerTextObj.activeSelf) _lowerTextObj.SetActive(true);
+                if (!_lowerShadowObj.activeSelf) _lowerShadowObj.SetActive(true);
 
-            if (isLeftSide)
-            {
-                // 左側配置（右詰め）: 右端を localX = 0 に固定し、左方向 (-X) へはみ出すように配置
-                // 左から右への読み順は [#順位] -> [アイコン画像] -> [プレイヤー名 精度 精度差]
-                float cursor = 0f;
-
-                if (hasBody)
-                {
-                    ApplyTextAlignmentAndPosition(_textMesh, _outlineShadowTextMesh, rightAligned: true, localX: cursor);
-                    float bodyWidth = Mathf.Max(0.1f, _textMesh.GetPreferredValues(bodyStr).x);
-                    cursor -= (bodyWidth + ElementGap);
-                }
-
-                _avatarTransform.localPosition = new Vector3(cursor - (AvatarIconSize * 0.5f), 0f, 0f);
-                cursor -= (AvatarIconSize + ElementGap);
-
-                if (hasRank)
-                {
-                    ApplyTextAlignmentAndPosition(_rankTextMesh, _rankShadowTextMesh, rightAligned: true, localX: cursor);
-                }
+                _lowerTextMesh.text = lowerStr;
+                _lowerShadowTextMesh.text = lowerStr;
+                ApplyLineAlignmentAndPosition(_lowerTextMesh, _lowerShadowTextMesh, rightAligned: isLeftSide, anchorX: textAnchorX, localY: lowerY);
             }
             else
             {
-                // 右側配置（左詰め）: 左端を localX = 0 に固定し、右方向 (+X) へはみ出すように配置
-                // 左から右への読み順は [#順位] -> [アイコン画像] -> [プレイヤー名 精度 精度差]
-                float cursor = 0f;
-
-                if (hasRank)
-                {
-                    ApplyTextAlignmentAndPosition(_rankTextMesh, _rankShadowTextMesh, rightAligned: false, localX: cursor);
-                    float rankWidth = Mathf.Max(0.1f, _rankTextMesh.GetPreferredValues(rankStr).x);
-                    cursor += (rankWidth + ElementGap);
-                }
-
-                _avatarTransform.localPosition = new Vector3(cursor + (AvatarIconSize * 0.5f), 0f, 0f);
-                cursor += (AvatarIconSize + ElementGap);
-
-                if (hasBody)
-                {
-                    ApplyTextAlignmentAndPosition(_textMesh, _outlineShadowTextMesh, rightAligned: false, localX: cursor);
-                }
+                if (_lowerTextObj.activeSelf) _lowerTextObj.SetActive(false);
+                if (_lowerShadowObj.activeSelf) _lowerShadowObj.SetActive(false);
             }
         }
 
-        private static void ApplyTextAlignmentAndPosition(
+        /// <summary>
+        /// TextMeshPro のネイティブ中心ピボット (0.5, 0.5) を維持したまま、
+        /// 左詰め時は左端が anchorX に、右詰め時は右端が anchorX に一致するようオフセット配置する
+        /// </summary>
+        private static void ApplyLineAlignmentAndPosition(
             TextMeshPro mainTmp,
             TextMeshPro shadowTmp,
             bool rightAligned,
-            float localX)
+            float anchorX,
+            float localY)
         {
-            Vector2 pivot = rightAligned ? new Vector2(1f, 0.5f) : new Vector2(0f, 0.5f);
             TextAlignmentOptions align = rightAligned
                 ? TextAlignmentOptions.MidlineRight
                 : TextAlignmentOptions.MidlineLeft;
 
-            var mainRect = mainTmp.rectTransform;
-            mainRect.pivot = pivot;
-            mainTmp.alignment = align;
-            mainRect.localPosition = new Vector3(localX, 0f, 0f);
+            float halfWidth = TextContainerWidth * 0.5f;
+            float centerX = rightAligned ? (anchorX - halfWidth) : (anchorX + halfWidth);
 
-            var shadowRect = shadowTmp.rectTransform;
-            shadowRect.pivot = pivot;
+            mainTmp.alignment = align;
+            mainTmp.rectTransform.localPosition = new Vector3(centerX, localY, 0f);
+
             shadowTmp.alignment = align;
-            shadowRect.localPosition = new Vector3(localX + ShadowOffset.x, ShadowOffset.y, ShadowOffset.z);
+            shadowTmp.rectTransform.localPosition = new Vector3(
+                centerX + ShadowOffset.x,
+                localY + ShadowOffset.y,
+                ShadowOffset.z);
         }
 
-        private string BuildBodyString(
-            bool includeRank,
-            bool includeName,
-            bool includeAccuracy,
-            bool includeDelta,
-            float rivalAccPercent,
-            float deltaPercent)
+        private string BuildUpperNameString(bool showPlayerName, bool isLeftSide)
         {
+            if (!showPlayerName)
+            {
+                return string.Empty;
+            }
+
+            string displayName = TruncateName(_boundEntry.PlayerName, 16);
+            if (!_boundEntry.IsSelf)
+            {
+                return displayName;
+            }
+
+            return isLeftSide
+                ? string.Concat(displayName, " [PB]")
+                : string.Concat("[PB] ", displayName);
+        }
+
+        private string BuildLowerStatsString(
+            bool showRank,
+            bool showAccuracy,
+            bool showDelta,
+            float rivalAccPercent,
+            float deltaPercent,
+            bool isLeftSide)
+        {
+            if (!showRank && !showAccuracy && !showDelta)
+            {
+                return string.Empty;
+            }
+
             _sb.Clear();
+            string sign = deltaPercent >= 0f ? "+" : "";
 
-            if (includeRank)
+            if (isLeftSide)
             {
-                _sb.Append('#').Append(_boundEntry.Rank);
-            }
-
-            if (includeName)
-            {
-                if (_sb.Length > 0) _sb.Append(' ');
-                if (_boundEntry.IsSelf)
+                // 左側レーン（右詰め・逆順）: 外側(左)から内側(右・アイコン側)に向かって [精度差] [精度] [#順位]
+                if (showDelta)
                 {
-                    _sb.Append("[PB] ");
+                    _sb.Append('(')
+                       .Append(sign)
+                       .Append(deltaPercent.ToString("F2", CultureInfo.InvariantCulture))
+                       .Append("%)");
                 }
-                _sb.Append(TruncateName(_boundEntry.PlayerName, 14));
-            }
 
-            if (includeAccuracy)
-            {
-                if (_sb.Length > 0) _sb.Append(' ');
-                _sb.Append(rivalAccPercent.ToString("F2", CultureInfo.InvariantCulture)).Append('%');
-            }
+                if (showAccuracy)
+                {
+                    if (_sb.Length > 0) _sb.Append(' ');
+                    _sb.Append(rivalAccPercent.ToString("F2", CultureInfo.InvariantCulture)).Append('%');
+                }
 
-            if (includeDelta)
+                if (showRank)
+                {
+                    if (_sb.Length > 0) _sb.Append(' ');
+                    _sb.Append('#').Append(_boundEntry.Rank);
+                }
+            }
+            else
             {
-                if (_sb.Length > 0) _sb.Append(' ');
-                string sign = deltaPercent >= 0f ? "+" : "";
-                _sb.Append('(')
-                   .Append(sign)
-                   .Append(deltaPercent.ToString("F2", CultureInfo.InvariantCulture))
-                   .Append("%)");
+                // 右側レーン（左詰め・通常順）: 内側(左・アイコン側)から外側(右)に向かって [#順位] [精度] [精度差]
+                if (showRank)
+                {
+                    _sb.Append('#').Append(_boundEntry.Rank);
+                }
+
+                if (showAccuracy)
+                {
+                    if (_sb.Length > 0) _sb.Append(' ');
+                    _sb.Append(rivalAccPercent.ToString("F2", CultureInfo.InvariantCulture)).Append('%');
+                }
+
+                if (showDelta)
+                {
+                    if (_sb.Length > 0) _sb.Append(' ');
+                    _sb.Append('(')
+                       .Append(sign)
+                       .Append(deltaPercent.ToString("F2", CultureInfo.InvariantCulture))
+                       .Append("%)");
+                }
             }
 
             return _sb.ToString();
