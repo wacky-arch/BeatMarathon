@@ -150,6 +150,36 @@ namespace RealtimeRankMarathon.UI
             }
         }
 
+        [UIValue("ahead-rivals-count")]
+        public int AheadRivalsCount
+        {
+            get => _config.AheadRivalsCount;
+            set
+            {
+                if (_config.AheadRivalsCount != value)
+                {
+                    _config.AheadRivalsCount = value;
+                    _config.Changed();
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        [UIValue("ground-max-distance")]
+        public float GroundMaxDistance
+        {
+            get => _config.GroundMaxDistance;
+            set
+            {
+                if (Math.Abs(_config.GroundMaxDistance - value) > 0.01f)
+                {
+                    _config.GroundMaxDistance = value;
+                    _config.Changed();
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
         [UIValue("show-rank")]
         public bool ShowRank
         {
@@ -409,6 +439,8 @@ namespace RealtimeRankMarathon.UI
         public void ResetDefaults()
         {
             _config.ResetDefaults();
+            NotifyPropertyChanged(nameof(AheadRivalsCount));
+            NotifyPropertyChanged(nameof(GroundMaxDistance));
             NotifyPropertyChanged(nameof(GroundZBase));
             NotifyPropertyChanged(nameof(OuterLaneXOffset));
             NotifyPropertyChanged(nameof(InnerLaneTiltAngle));

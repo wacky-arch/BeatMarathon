@@ -218,18 +218,20 @@ namespace RealtimeRankMarathon.UI
                 // Z = Z_base + (Δ% * DistanceScale_Ground)
                 float zBase = config.GroundZBase;
                 float zPos = zBase + (deltaPercent * config.DistanceScaleGround);
+                float maxDist = Mathf.Max(10.0f, config.GroundMaxDistance);
 
-                // Z > 20.0m の遠方、または完全に後方へ流れ切った場合 (Z < 0.15m) は非表示
-                if (zPos > 20.0f || zPos < 0.15f)
+                // Z > maxDist の遠方、または完全に後方へ流れ切った場合 (Z < 0.15m) は非表示
+                if (zPos > maxDist || zPos < 0.15f)
                 {
                     HideWithoutUnbinding();
                     return;
                 }
 
-                // 遠方フェードイン (16m〜20m) および 追い抜き後の後方フェードアウト (Z_base〜0.15m)
-                if (zPos > 16.0f)
+                // 遠方フェードイン (maxDist - 4m 〜 maxDist) および 追い抜き後の後方フェードアウト (Z_base〜0.15m)
+                float fadeStart = Mathf.Max(zBase + 1.0f, maxDist - 4.0f);
+                if (zPos > fadeStart)
                 {
-                    alpha = Mathf.Clamp01((20.0f - zPos) / 4.0f);
+                    alpha = Mathf.Clamp01((maxDist - zPos) / Mathf.Max(0.5f, maxDist - fadeStart));
                 }
                 else if (zPos < zBase)
                 {
@@ -400,13 +402,17 @@ namespace RealtimeRankMarathon.UI
                 if (isLeftSide)
                 {
                     // 左側レーン: 右端 (localX = 0) が内側なので、アイコン中心は -AvatarIconSize * 0.5f
+                    // 傾きの方向を反転させて自分（内側・右方向）を向かせる
                     _avatarRect.localPosition = new Vector3(-(AvatarIconSize * 0.5f), 0f, 0f);
+                    _avatarRect.localRotation = Quaternion.Euler(0f, 15f, 0f);
                     textAnchorX = -(AvatarIconSize + ElementGap);
                 }
                 else
                 {
                     // 右側レーン: 左端 (localX = 0) が内側なので、アイコン中心は +AvatarIconSize * 0.5f
+                    // 自分（内側・左方向）を向かせる
                     _avatarRect.localPosition = new Vector3(AvatarIconSize * 0.5f, 0f, 0f);
+                    _avatarRect.localRotation = Quaternion.Euler(0f, -15f, 0f);
                     textAnchorX = AvatarIconSize + ElementGap;
                 }
             }

@@ -14,7 +14,7 @@ namespace RealtimeRankMarathon.UI
 
     public class RankPlatePool : IInitializable, IDisposable
     {
-        public const int MaxPoolSize = 8; // 前方5人 + 後方3人 の最大8個
+        public const int MaxPoolSize = 24; // 前方最大20人 + 後方3人 の最大24個プール
 
         private readonly PluginConfig _config;
         private readonly AvatarCacheService _avatarCacheService;

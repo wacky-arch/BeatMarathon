@@ -54,6 +54,10 @@ namespace RealtimeRankMarathon
         public virtual bool ShowAccuracy { get; set; } = true;
         public virtual bool ShowDelta { get; set; } = true;
 
+        // Display Count & Distance (表示人数・距離設定)
+        public virtual int AheadRivalsCount { get; set; } = 5;
+        public virtual float GroundMaxDistance { get; set; } = 20.0f;
+
         // 5. Ground Z-Base (m)
         public virtual float GroundZBase { get; set; } = 2.5f;
 
@@ -91,6 +95,8 @@ namespace RealtimeRankMarathon
 
         public void ResetDefaults()
         {
+            AheadRivalsCount = 5;
+            GroundMaxDistance = 20.0f;
             GroundZBase = 2.5f;
             OuterLaneXOffset = 2.0f;
             InnerLaneXOffset = 0.8f;
@@ -131,6 +137,8 @@ namespace RealtimeRankMarathon
             ShowPlayerName = other.ShowPlayerName;
             ShowAccuracy = other.ShowAccuracy;
             ShowDelta = other.ShowDelta;
+            AheadRivalsCount = other.AheadRivalsCount;
+            GroundMaxDistance = other.GroundMaxDistance;
             GroundZBase = other.GroundZBase;
             OuterLaneXOffset = other.OuterLaneXOffset;
             InnerLaneXOffset = other.InnerLaneXOffset;

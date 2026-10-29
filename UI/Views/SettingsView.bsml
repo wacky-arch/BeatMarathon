@@ -11,6 +11,7 @@
         <list-setting text='Data Source (取得元)' value='data-source' choices='data-source-options' apply-on-change='true' />
         <list-setting text='Ranking Scope (絞り込み)' value='ranking-scope' choices='ranking-scope-options' apply-on-change='true' />
         <list-setting text='Display Mode (表示モード)' value='display-mode' choices='display-mode-options' apply-on-change='true' />
+        <increment-setting text='Ahead Rivals (前方表示人数)' value='ahead-rivals-count' min='1' max='20' increment='1' apply-on-change='true' />
         <horizontal child-align='MiddleCenter' pad-top='1'>
           <button text='座標・倍率を初期値に戻す (Reset Defaults)' on-click='reset-defaults' />
         </horizontal>
@@ -29,6 +30,7 @@
 
     <tab tags='rrm-tab' tab-name='Ground'>
       <vertical child-control-height='false' child-expand-height='false' spacing='1'>
+        <increment-setting text='Ahead Max Dist (前方最大距離 m)' value='ground-max-distance' min='10.0' max='60.0' increment='1.0' apply-on-change='true' />
         <increment-setting text='Ground Z-Base (基準奥行き m)' value='ground-z-base' min='0.5' max='8.0' increment='0.1' apply-on-change='true' />
         <increment-setting text='Outer Lane X (外側幅 m)' value='outer-lane-x' min='1.0' max='4.0' increment='0.1' apply-on-change='true' />
         <increment-setting text='Inner Tilt Angle (寝かせ角度)' value='inner-lane-tilt' min='0' max='85' increment='5' apply-on-change='true' />

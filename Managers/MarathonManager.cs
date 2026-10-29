@@ -215,21 +215,24 @@ namespace RealtimeRankMarathon.Managers
                 _currentEstimatedRank = _entries[_entries.Count - 1].Rank + 1;
             }
 
-            // 前方最大5人 (insertionIndex - 5 .. insertionIndex - 1) と 後方最大3人 (insertionIndex .. insertionIndex + 2) を抽出
-            int startIdx = Mathf.Max(0, insertionIndex - MaxAheadRivals);
+            // 前方指定人数 (config.AheadRivalsCount: 1〜20人) と 後方最大3人を抽出
+            int aheadCount = Mathf.Clamp(_config.AheadRivalsCount, 1, 20);
+            int totalTargetCount = aheadCount + MaxBehindRivals;
+
+            int startIdx = Mathf.Max(0, insertionIndex - aheadCount);
             int endIdx = Mathf.Min(_entries.Count - 1, insertionIndex + MaxBehindRivals - 1);
 
-            // 端に寄っている場合は最大8個になるようウィンドウを補正
+            // 端に寄っている場合は totalTargetCount になるようウィンドウを補正
             int currentWindowCount = endIdx - startIdx + 1;
-            if (currentWindowCount < RankPlatePool.MaxPoolSize)
+            if (currentWindowCount < totalTargetCount)
             {
                 if (startIdx == 0)
                 {
-                    endIdx = Mathf.Min(_entries.Count - 1, startIdx + RankPlatePool.MaxPoolSize - 1);
+                    endIdx = Mathf.Min(_entries.Count - 1, startIdx + totalTargetCount - 1);
                 }
                 else if (endIdx == _entries.Count - 1)
                 {
-                    startIdx = Mathf.Max(0, endIdx - RankPlatePool.MaxPoolSize + 1);
+                    startIdx = Mathf.Max(0, endIdx - totalTargetCount + 1);
                 }
             }
 
