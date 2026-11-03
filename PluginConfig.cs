@@ -28,6 +28,13 @@ namespace RealtimeRankMarathon
         VerticalBar = 1
     }
 
+    public enum OvertakingMode
+    {
+        Off = 0,
+        Multiplier = 1,
+        AutoLowest = 2
+    }
+
     public class PluginConfig
     {
         public static PluginConfig Instance { get; set; }
@@ -57,6 +64,11 @@ namespace RealtimeRankMarathon
         // Display Count & Distance (表示人数・距離設定)
         public virtual int AheadRivalsCount { get; set; } = 5;
         public virtual float GroundMaxDistance { get; set; } = 20.0f;
+
+        // Overtaking Spree Mode (ごぼう抜きモード設定)
+        [UseConverter(typeof(EnumConverter<OvertakingMode>))]
+        public virtual OvertakingMode OvertakeMode { get; set; } = OvertakingMode.Multiplier;
+        public virtual float OvertakingStartMultiplier { get; set; } = 0.90f;
 
         // 5. Ground Z-Base (m)
         public virtual float GroundZBase { get; set; } = 2.5f;
@@ -97,6 +109,8 @@ namespace RealtimeRankMarathon
         {
             AheadRivalsCount = 5;
             GroundMaxDistance = 20.0f;
+            OvertakeMode = OvertakingMode.Multiplier;
+            OvertakingStartMultiplier = 0.90f;
             GroundZBase = 2.5f;
             OuterLaneXOffset = 2.0f;
             InnerLaneXOffset = 0.8f;
@@ -139,6 +153,8 @@ namespace RealtimeRankMarathon
             ShowDelta = other.ShowDelta;
             AheadRivalsCount = other.AheadRivalsCount;
             GroundMaxDistance = other.GroundMaxDistance;
+            OvertakeMode = other.OvertakeMode;
+            OvertakingStartMultiplier = other.OvertakingStartMultiplier;
             GroundZBase = other.GroundZBase;
             OuterLaneXOffset = other.OuterLaneXOffset;
             InnerLaneXOffset = other.InnerLaneXOffset;

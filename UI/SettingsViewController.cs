@@ -40,6 +40,14 @@ namespace RealtimeRankMarathon.UI
             "Vertical Bar"
         };
 
+        [UIValue("overtake-mode-options")]
+        public List<object> OvertakeModeOptions { get; } = new List<object>
+        {
+            "Multiplier (倍率指定)",
+            "AUTO (最下位から)",
+            "Off (通常)"
+        };
+
         public SettingsViewController(PluginConfig config)
         {
             _config = config;
@@ -159,6 +167,61 @@ namespace RealtimeRankMarathon.UI
                 if (_config.AheadRivalsCount != value)
                 {
                     _config.AheadRivalsCount = value;
+                    _config.Changed();
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        [UIValue("overtake-mode")]
+        public string OvertakeMode
+        {
+            get
+            {
+                switch (_config.OvertakeMode)
+                {
+                    case OvertakingMode.AutoLowest:
+                        return "AUTO (最下位から)";
+                    case OvertakingMode.Off:
+                        return "Off (通常)";
+                    default:
+                        return "Multiplier (倍率指定)";
+                }
+            }
+            set
+            {
+                OvertakingMode parsed;
+                if (value != null && value.StartsWith("AUTO", StringComparison.OrdinalIgnoreCase))
+                {
+                    parsed = OvertakingMode.AutoLowest;
+                }
+                else if (value != null && value.StartsWith("Off", StringComparison.OrdinalIgnoreCase))
+                {
+                    parsed = OvertakingMode.Off;
+                }
+                else
+                {
+                    parsed = OvertakingMode.Multiplier;
+                }
+
+                if (_config.OvertakeMode != parsed)
+                {
+                    _config.OvertakeMode = parsed;
+                    _config.Changed();
+                    NotifyPropertyChanged();
+                }
+            }
+        }
+
+        [UIValue("overtake-start-mult")]
+        public float OvertakingStartMultiplier
+        {
+            get => _config.OvertakingStartMultiplier;
+            set
+            {
+                if (Math.Abs(_config.OvertakingStartMultiplier - value) > 0.001f)
+                {
+                    _config.OvertakingStartMultiplier = value;
                     _config.Changed();
                     NotifyPropertyChanged();
                 }
@@ -440,6 +503,8 @@ namespace RealtimeRankMarathon.UI
         {
             _config.ResetDefaults();
             NotifyPropertyChanged(nameof(AheadRivalsCount));
+            NotifyPropertyChanged(nameof(OvertakeMode));
+            NotifyPropertyChanged(nameof(OvertakingStartMultiplier));
             NotifyPropertyChanged(nameof(GroundMaxDistance));
             NotifyPropertyChanged(nameof(GroundZBase));
             NotifyPropertyChanged(nameof(OuterLaneXOffset));

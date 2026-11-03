@@ -287,7 +287,7 @@ namespace RealtimeRankMarathon.UI
             }
             else
             {
-                float lerpFactor = Mathf.Clamp01(deltaTime * 12.0f);
+                float lerpFactor = 1.0f - Mathf.Exp(-7.5f * deltaTime);
                 _rootTransform.localPosition = Vector3.Lerp(_rootTransform.localPosition, _currentTargetLocalPos, lerpFactor);
                 _rootTransform.localRotation = Quaternion.Slerp(_rootTransform.localRotation, _currentTargetLocalRot, lerpFactor);
             }
@@ -402,15 +402,15 @@ namespace RealtimeRankMarathon.UI
                 if (isLeftSide)
                 {
                     // 左側レーン: 右端 (localX = 0) が内側なので、アイコン中心は -AvatarIconSize * 0.5f
-                    // 傾きの方向を反転させて自分（内側・右方向）を向かせる
+                    // 傾きの方向を反転させて自分（内側・プレイヤー方向）を向かせる
                     _avatarRect.localPosition = new Vector3(-(AvatarIconSize * 0.5f), 0f, 0f);
-                    _avatarRect.localRotation = Quaternion.Euler(0f, 15f, 0f);
+                    _avatarRect.localRotation = Quaternion.Euler(0f, -15f, 0f);
                     textAnchorX = -(AvatarIconSize + ElementGap);
                 }
                 else
                 {
                     // 右側レーン: 左端 (localX = 0) が内側なので、アイコン中心は +AvatarIconSize * 0.5f
-                    // 自分（内側・左方向）を向かせる
+                    // 自分（内側・プレイヤー方向）を向かせる
                     _avatarRect.localPosition = new Vector3(AvatarIconSize * 0.5f, 0f, 0f);
                     _avatarRect.localRotation = Quaternion.Euler(0f, -15f, 0f);
                     textAnchorX = AvatarIconSize + ElementGap;

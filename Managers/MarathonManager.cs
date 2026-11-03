@@ -18,6 +18,7 @@ namespace RealtimeRankMarathon.Managers
 
         private IScoreController _scoreController;
         private RelativeScoreAndImmediateRankCounter _relativeScoreCounter;
+        private IReadonlyBeatmapData _beatmapData;
         private readonly GameplayCoreSceneSetupData _sceneSetupData;
         private readonly ILevelEndActions _levelEndActions;
         private readonly LeaderboardFetcher _leaderboardFetcher;
@@ -30,7 +31,11 @@ namespace RealtimeRankMarathon.Managers
         private readonly LeaderboardEntry _searchProbe = new LeaderboardEntry();
 
         private int _scoredNoteCount;
-        private float _currentAccuracy = 1.0f;
+        private int _totalNotesCount = 500;
+        private float _rawAccuracy = 1.0f;
+        private float _targetDisplayAccuracy = 1.0f;
+        private float _smoothedDisplayAccuracy = 1.0f;
+        private float _lastRecalculatedDisplayAccuracy = -1.0f;
         private int _currentEstimatedRank = 1;
         private bool _isDisplayActive;
         private bool _levelEndTriggered;
@@ -40,6 +45,7 @@ namespace RealtimeRankMarathon.Managers
         public MarathonManager(
             [InjectOptional] IScoreController scoreController,
             [InjectOptional] RelativeScoreAndImmediateRankCounter relativeScoreCounter,
+            [InjectOptional] IReadonlyBeatmapData beatmapData,
             [InjectOptional] GameplayCoreSceneSetupData sceneSetupData,
             [InjectOptional] ILevelEndActions levelEndActions,
             LeaderboardFetcher leaderboardFetcher,
@@ -49,6 +55,7 @@ namespace RealtimeRankMarathon.Managers
         {
             _scoreController = scoreController;
             _relativeScoreCounter = relativeScoreCounter;
+            _beatmapData = beatmapData;
             _sceneSetupData = sceneSetupData;
             _levelEndActions = levelEndActions;
             _leaderboardFetcher = leaderboardFetcher;
@@ -62,7 +69,9 @@ namespace RealtimeRankMarathon.Managers
             _scoredNoteCount = 0;
             _isDisplayActive = false;
             _levelEndTriggered = false;
+            _lastRecalculatedDisplayAccuracy = -1.0f;
             _entries = _leaderboardFetcher.GetEntriesSnapshot();
+            _totalNotesCount = ResolveTotalScorableNotesCount();
 
             // DIで取得できなかった場合の確実なフォールバック検索
             if (_scoreController == null)
@@ -103,6 +112,52 @@ namespace RealtimeRankMarathon.Managers
             }
         }
 
+        private int ResolveTotalScorableNotesCount()
+        {
+            try
+            {
+                var bmData = _beatmapData ?? _sceneSetupData?.transformedBeatmapData;
+                if (bmData != null)
+                {
+                    int exactScorableCount = 0;
+                    foreach (var noteData in bmData.GetBeatmapDataItems<NoteData>(0))
+                    {
+                        if (noteData != null &&
+                            noteData.gameplayType != NoteData.GameplayType.Bomb &&
+                            noteData.scoringType != NoteData.ScoringType.Ignore &&
+                            noteData.scoringType != NoteData.ScoringType.NoScore)
+                        {
+                            exactScorableCount++;
+                        }
+                    }
+
+                    if (exactScorableCount > 0)
+                    {
+                        return exactScorableCount;
+                    }
+
+                    if (bmData.cuttableNotesCount > 0)
+                    {
+                        return bmData.cuttableNotesCount;
+                    }
+                }
+
+                if (_sceneSetupData != null && _sceneSetupData.beatmapBasicData != null)
+                {
+                    if (_sceneSetupData.beatmapBasicData.notesCount > 0)
+                    {
+                        return _sceneSetupData.beatmapBasicData.notesCount;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Plugin.Log?.Warn($"[MarathonManager] ResolveTotalScorableNotesCount fallback: {ex.Message}");
+            }
+
+            return 500;
+        }
+
         private float GetCurrentRealtimeAccuracy()
         {
             if (_relativeScoreCounter != null)
@@ -116,6 +171,57 @@ namespace RealtimeRankMarathon.Managers
             }
 
             return 1.0f;
+        }
+
+        /// <summary>
+        /// ごぼう抜きモード（Off / 倍率指定 / AUTO最下位）および現在のノーツ進行割合に応じて、
+        /// ランキング順位・距離表示に使用する実効精度を算出する。
+        /// 20ノーツ時点で開始補正が適用され、最終ノーツ時点で 1.0倍（実精度と完全一致）に収束する。
+        /// </summary>
+        private float CalculateEffectiveAccuracy(float rawAccuracy)
+        {
+            if (_config.OvertakeMode == OvertakingMode.Off)
+            {
+                return rawAccuracy;
+            }
+
+            float progress = _totalNotesCount > RequiredNotesBeforeDisplay
+                ? Mathf.Clamp01((float)(_scoredNoteCount - RequiredNotesBeforeDisplay) / (_totalNotesCount - RequiredNotesBeforeDisplay))
+                : 1.0f;
+
+            if (_config.OvertakeMode == OvertakingMode.AutoLowest)
+            {
+                float lowestAcc = GetLowestEntryAccuracy();
+                if (lowestAcc > 0.01f && lowestAcc < rawAccuracy)
+                {
+                    return Mathf.Clamp01(Mathf.Lerp(lowestAcc, rawAccuracy, progress));
+                }
+                return rawAccuracy;
+            }
+
+            // OvertakingMode.Multiplier (デフォルト 0.90倍, 0.50〜1.00倍)
+            float startMult = Mathf.Clamp(_config.OvertakingStartMultiplier, 0.50f, 1.00f);
+            float currentMult = Mathf.Lerp(startMult, 1.0f, progress);
+            return Mathf.Clamp01(rawAccuracy * currentMult);
+        }
+
+        private float GetLowestEntryAccuracy()
+        {
+            if (_entries == null || _entries.Count == 0)
+            {
+                return -1.0f;
+            }
+
+            for (int i = _entries.Count - 1; i >= 0; i--)
+            {
+                float acc = (float)_entries[i].Accuracy;
+                if (acc > 0.01f)
+                {
+                    return acc;
+                }
+            }
+
+            return -1.0f;
         }
 
         private void OnScoringForNoteFinished(ScoringElement scoringElement)
@@ -142,7 +248,8 @@ namespace RealtimeRankMarathon.Managers
             }
 
             _scoredNoteCount++;
-            _currentAccuracy = GetCurrentRealtimeAccuracy();
+            _rawAccuracy = GetCurrentRealtimeAccuracy();
+            _targetDisplayAccuracy = CalculateEffectiveAccuracy(_rawAccuracy);
 
             // プレイ開始から 20ノーツ の採点が完了するまではランキングUIを完全に非表示
             if (_scoredNoteCount < RequiredNotesBeforeDisplay)
@@ -153,9 +260,9 @@ namespace RealtimeRankMarathon.Managers
             if (!_isDisplayActive)
             {
                 _isDisplayActive = true;
+                _smoothedDisplayAccuracy = _targetDisplayAccuracy;
+                RecalculateRankAndAssignPlates();
             }
-
-            RecalculateRankAndAssignPlates();
         }
 
         public void Tick()
@@ -171,6 +278,7 @@ namespace RealtimeRankMarathon.Managers
                 _entries = _leaderboardFetcher.GetEntriesSnapshot();
                 if (_isDisplayActive && _scoredNoteCount >= RequiredNotesBeforeDisplay)
                 {
+                    _targetDisplayAccuracy = CalculateEffectiveAccuracy(_rawAccuracy);
                     RecalculateRankAndAssignPlates();
                 }
             }
@@ -180,12 +288,27 @@ namespace RealtimeRankMarathon.Managers
                 return;
             }
 
-            _currentAccuracy = GetCurrentRealtimeAccuracy();
-            _platePool.UpdateActivePlates(_currentAccuracy, _currentEstimatedRank, Time.deltaTime);
+            _rawAccuracy = GetCurrentRealtimeAccuracy();
+            _targetDisplayAccuracy = CalculateEffectiveAccuracy(_rawAccuracy);
+
+            // ノーツカット時に精度が大きく変化した場合でも、他プレイヤーの表示が一瞬で飛ばず滑らかに移動するよう補間
+            float smoothFactor = 1.0f - Mathf.Exp(-4.5f * Time.deltaTime);
+            _smoothedDisplayAccuracy = Mathf.Lerp(_smoothedDisplayAccuracy, _targetDisplayAccuracy, smoothFactor);
+            if (Mathf.Abs(_targetDisplayAccuracy - _smoothedDisplayAccuracy) < 0.00001f)
+            {
+                _smoothedDisplayAccuracy = _targetDisplayAccuracy;
+            }
+
+            if (Mathf.Abs(_smoothedDisplayAccuracy - _lastRecalculatedDisplayAccuracy) >= 0.00005f)
+            {
+                RecalculateRankAndAssignPlates();
+            }
+
+            _platePool.UpdateActivePlates(_smoothedDisplayAccuracy, _currentEstimatedRank, Time.deltaTime);
         }
 
         /// <summary>
-        /// ノーツ採点完了イベント発火時に、降順対応 BinarySearch で現在順位と表示対象（前方5人・後方3人）を特定する
+        /// 降順対応 BinarySearch で現在順位と表示対象（前方指定人数・後方3人）を特定する
         /// </summary>
         private void RecalculateRankAndAssignPlates()
         {
@@ -195,7 +318,8 @@ namespace RealtimeRankMarathon.Managers
                 return;
             }
 
-            _searchProbe.Accuracy = _currentAccuracy;
+            _lastRecalculatedDisplayAccuracy = _smoothedDisplayAccuracy;
+            _searchProbe.Accuracy = _smoothedDisplayAccuracy;
 
             // 降順リストに対する二分探索
             int searchIndex = _entries.BinarySearch(_searchProbe, LeaderboardEntry.DescendingAccuracyComparer.Instance);
@@ -272,7 +396,7 @@ namespace RealtimeRankMarathon.Managers
 
             if (needsGapFetch)
             {
-                _ = _leaderboardFetcher.FetchGapEntriesForAccuracyAsync(_currentAccuracy);
+                _ = _leaderboardFetcher.FetchGapEntriesForAccuracyAsync(_smoothedDisplayAccuracy);
             }
         }
 
@@ -295,6 +419,8 @@ namespace RealtimeRankMarathon.Managers
 
             if (_isDisplayActive && _scoredNoteCount >= RequiredNotesBeforeDisplay)
             {
+                _rawAccuracy = GetCurrentRealtimeAccuracy();
+                _targetDisplayAccuracy = CalculateEffectiveAccuracy(_rawAccuracy);
                 RecalculateRankAndAssignPlates();
             }
         }
@@ -312,9 +438,9 @@ namespace RealtimeRankMarathon.Managers
 
             // ロック解除してリザルト遷移中に前後5人ずつのアイコンをキャッシュ
             _avatarCacheService.SetGameplayLock(false);
-            _currentAccuracy = GetCurrentRealtimeAccuracy();
+            _rawAccuracy = GetCurrentRealtimeAccuracy();
 
-            _ = _leaderboardFetcher.CacheAroundFinalAccuracyAsync(_currentAccuracy);
+            _ = _leaderboardFetcher.CacheAroundFinalAccuracyAsync(_rawAccuracy);
         }
 
         public void Dispose()

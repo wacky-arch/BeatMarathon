@@ -29,6 +29,8 @@ namespace RealtimeRankMarathon.UI
         private int _lastCenterMarkerAccCent = int.MinValue;
 
         private readonly List<RankPlateView> _plates = new List<RankPlateView>(MaxPoolSize);
+        private readonly bool[] _plateKeepFlags = new bool[MaxPoolSize];
+        private readonly bool[] _entryAssignedFlags = new bool[MaxPoolSize];
 
         private TMP_FontAsset _sharedFont;
         private Material _sharedOutlineMaterial;
@@ -178,7 +180,9 @@ namespace RealtimeRankMarathon.UI
         }
 
         /// <summary>
-        /// 抽出された表示対象ライバル（最大8人）をプール内のプレートへ割り当てる
+        /// 抽出された表示対象ライバルをプール内のプレートへ割り当てる。
+        /// 既に表示中のライバルは同じプレートインスタンスを維持（Sticky Binding）し、
+        /// 順位変動時にプレートが入れ替わって座標が瞬間移動するのを防ぐ。
         /// </summary>
         public void AssignTargetsToPool(IReadOnlyList<LeaderboardEntry> targetEntries)
         {
@@ -191,27 +195,92 @@ namespace RealtimeRankMarathon.UI
                 return;
             }
 
-            int count = Mathf.Min(_plates.Count, targetEntries.Count);
-            for (int i = 0; i < count; i++)
+            int plateCount = _plates.Count;
+            int targetCount = Mathf.Min(plateCount, targetEntries.Count);
+
+            for (int p = 0; p < plateCount; p++)
             {
-                var entry = targetEntries[i];
-                Sprite cachedIcon = entry.CachedAvatar;
-                if (cachedIcon == null && !string.IsNullOrEmpty(entry.PlayerId))
+                _plateKeepFlags[p] = false;
+            }
+            for (int t = 0; t < targetCount; t++)
+            {
+                _entryAssignedFlags[t] = false;
+            }
+
+            // 1. 既にプール内のプレートにバインドされているライバルは、同じプレートを継続使用する
+            for (int t = 0; t < targetCount; t++)
+            {
+                var entry = targetEntries[t];
+                for (int p = 0; p < plateCount; p++)
                 {
-                    if (_avatarCacheService.TryGetAvatar(entry.PlayerId, out Sprite found))
+                    if (_plateKeepFlags[p]) continue;
+
+                    var bound = _plates[p].BoundEntry;
+                    if (bound != null && IsSameEntry(bound, entry))
                     {
-                        entry.CachedAvatar = found;
-                        cachedIcon = found;
+                        _plateKeepFlags[p] = true;
+                        _entryAssignedFlags[t] = true;
+                        BindEntryWithAvatar(_plates[p], entry);
+                        break;
                     }
                 }
-
-                _plates[i].BindEntry(entry, cachedIcon);
             }
 
-            for (int i = count; i < _plates.Count; i++)
+            // 2. 表示対象から外れたプレートを非表示にして解放する
+            for (int p = 0; p < plateCount; p++)
             {
-                _plates[i].Hide();
+                if (!_plateKeepFlags[p])
+                {
+                    _plates[p].Hide();
+                }
             }
+
+            // 3. 新しく表示範囲に入ったライバルを空きプレートへ割り当てる
+            int freePlateIndex = 0;
+            for (int t = 0; t < targetCount; t++)
+            {
+                if (_entryAssignedFlags[t]) continue;
+
+                while (freePlateIndex < plateCount && _plateKeepFlags[freePlateIndex])
+                {
+                    freePlateIndex++;
+                }
+
+                if (freePlateIndex >= plateCount)
+                {
+                    break;
+                }
+
+                _plateKeepFlags[freePlateIndex] = true;
+                BindEntryWithAvatar(_plates[freePlateIndex], targetEntries[t]);
+                freePlateIndex++;
+            }
+        }
+
+        private static bool IsSameEntry(LeaderboardEntry a, LeaderboardEntry b)
+        {
+            if (ReferenceEquals(a, b)) return true;
+            if (a == null || b == null) return false;
+            if (!string.IsNullOrEmpty(a.PlayerId) && !string.IsNullOrEmpty(b.PlayerId))
+            {
+                return string.Equals(a.PlayerId, b.PlayerId, StringComparison.Ordinal);
+            }
+            return a.Rank == b.Rank && string.Equals(a.PlayerName, b.PlayerName, StringComparison.Ordinal);
+        }
+
+        private void BindEntryWithAvatar(RankPlateView plate, LeaderboardEntry entry)
+        {
+            Sprite cachedIcon = entry.CachedAvatar;
+            if (ReferenceEquals(cachedIcon, null) && !string.IsNullOrEmpty(entry.PlayerId))
+            {
+                if (_avatarCacheService.TryGetAvatar(entry.PlayerId, out Sprite found))
+                {
+                    entry.CachedAvatar = found;
+                    cachedIcon = found;
+                }
+            }
+
+            plate.BindEntry(entry, cachedIcon);
         }
 
         /// <summary>
