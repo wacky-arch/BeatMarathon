@@ -3,10 +3,10 @@
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <AssemblyName>RealtimeRankMarathon</AssemblyName>
-    <RootNamespace>RealtimeRankMarathon</RootNamespace>
+    <AssemblyName>BeatMarathon</AssemblyName>
+    <RootNamespace>BeatMarathon</RootNamespace>
     <Version>1.0.0</Version>
-    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <BeatSaberDir>d:\BSManager\BSInstances\1.40.8</BeatSaberDir>
@@ -15,8 +15,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="manifest.json" LogicalName="RealtimeRankMarathon.manifest.json" />
-    <EmbeddedResource Include="UI\Views\SettingsView.bsml" LogicalName="RealtimeRankMarathon.UI.Views.SettingsView.bsml" />
+    <EmbeddedResource Include="BeatMarathon.manifest.json" LogicalName="BeatMarathon.manifest.json" />
+    <EmbeddedResource Include="BeatMarathon.UI.Views.SettingsView.bsml" LogicalName="BeatMarathon.UI.Views.SettingsView.bsml" />
   </ItemGroup>
 
   <ItemGroup>

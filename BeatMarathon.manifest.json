@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/bsmg/BSIPA-MetadataFileSchema/master/Schema.json",
-  "id": "RealtimeRankMarathon",
-  "name": "Realtime Rank Marathon",
-  "author": "RealtimeRankMarathon",
+  "id": "BeatMarathon",
+  "name": "BeatMarathon",
+  "author": "BeatMarathon",
   "version": "1.0.0",
   "description": "Visualizes real-time accuracy rank progression against BeatLeader / ScoreSaber rivals in a marathon road-sign or vertical bar style without GC spikes.",
   "gameVersion": "1.40.8",
