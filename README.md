@@ -13,12 +13,10 @@ Fetches leaderboard data from BeatLeader and ScoreSaber in advance, visualizing 
 > [!WARNING]
 > ### 免責事項 / Disclaimer
 > 
-> **日本語:**  
 > 本MODは wacky が個人的に楽しむために作成・カスタマイズしているものです。  
 > そのため、他のPC環境や将来のBeat Saberバージョンでの動作は保証できません。  
 > 導入およびご利用はすべて自己責任にてお願いいたします。
 > 
-> **English:**  
 > This mod is created and maintained by wacky purely for personal enjoyment.  
 > As such, proper operation in other environments or future Beat Saber versions is not guaranteed.  
 > Please use this mod entirely at your own risk.
@@ -28,8 +26,8 @@ Fetches leaderboard data from BeatLeader and ScoreSaber in advance, visualizing 
 ## 🏃 主な特徴 / Features
 
 1. **リアルタイム・ライバル追従 / Real-time Rival Tracking**
-   - **日本語**: BeatLeader / ScoreSaber のランキング（Global / Country / Friends）に対応。プレイヤーのアバターアイコン・名前・精度を表示し、現在精度に応じたごぼう抜きアニメーション演出！
-   - **English**: Supports BeatLeader & ScoreSaber leaderboards (Global / Country / Friends). Displays rival avatars, player names, accuracy %, and dynamic overtake animations as your accuracy shifts!
+   - BeatLeader / ScoreSaber のランキング（Global / Country / Friends）に対応。プレイヤーのアバターアイコン・名前・精度を表示し、現在精度に応じたごぼう抜きアニメーション演出！
+   - Supports BeatLeader & ScoreSaber leaderboards (Global / Country / Friends). Displays rival avatars, player names, accuracy %, and dynamic overtake animations as your accuracy shifts!
 2. **2種類の表示スタイル / 2 Display Styles**
    - **ロードサイン方式 (RoadSignMarathon)**: コース脇に看板（キロポスト）が並ぶマラソン大会の臨場感。
    - **バー方式 (VerticalBar)**: 縦型バーで直感的に順位関係や前後のプレイヤー差を把握。
