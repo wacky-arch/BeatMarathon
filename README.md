@@ -6,6 +6,8 @@ BeatLeader および ScoreSaber のランキングデータを事前取得し、
 A real-time rival ranking visualization mod for Beat Saber 1.40.8.  
 Fetches leaderboard data from BeatLeader and ScoreSaber in advance, visualizing rank progressions and position overtakes against rival players in real time via "Marathon Road Sign" or "Vertical Bar" styles in VR.
 
+![BeatMarathon Screenshot](docs/screenshot.jpg)
+
 ---
 
 > [!WARNING]
