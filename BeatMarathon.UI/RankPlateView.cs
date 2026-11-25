@@ -1,8 +1,9 @@
 using System;
 using System.Globalization;
 using System.Text;
-using HMUI;
 using BeatMarathon.Models;
+using BeatSaberMarkupLanguage;
+using HMUI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,17 +12,23 @@ namespace BeatMarathon.UI;
 
 public class RankPlateView
 {
-	private const float AvatarIconSize = 0.36f;
+	private const float UiScale = 0.01f;
+
+	private const float UiUnitsPerMeter = 100f;
+
+	private const float AvatarIconSizeUi = 36f;
 
 	private const float ElementGap = 0.08f;
 
-	private const float TextContainerWidth = 8f;
+	private const float TextContainerWidthUi = 800f;
+
+	private const float TextContainerHeightUi = 50f;
 
 	private const float UpperLineOffsetY = 0.12f;
 
 	private const float LowerLineOffsetY = -0.12f;
 
-	private static readonly Vector3 ShadowOffset = new Vector3(0.012f, -0.012f, 0.004f);
+	private static readonly Vector2 ShadowOffsetUi = new Vector2(1.2f, -1.2f);
 
 	private static readonly Color NormalRivalColor = Color.white;
 
@@ -35,6 +42,10 @@ public class RankPlateView
 
 	private readonly Transform _rootTransform;
 
+	private readonly GameObject _canvasObject;
+
+	private readonly RectTransform _canvasRect;
+
 	private readonly GameObject _avatarObject;
 
 	private readonly RectTransform _avatarRect;
@@ -45,17 +56,17 @@ public class RankPlateView
 
 	private readonly GameObject _upperShadowObj;
 
-	private readonly TextMeshPro _upperTextMesh;
+	private readonly CurvedTextMeshPro _upperTextMesh;
 
-	private readonly TextMeshPro _upperShadowTextMesh;
+	private readonly CurvedTextMeshPro _upperShadowTextMesh;
 
 	private readonly GameObject _lowerTextObj;
 
 	private readonly GameObject _lowerShadowObj;
 
-	private readonly TextMeshPro _lowerTextMesh;
+	private readonly CurvedTextMeshPro _lowerTextMesh;
 
-	private readonly TextMeshPro _lowerShadowTextMesh;
+	private readonly CurvedTextMeshPro _lowerShadowTextMesh;
 
 	private readonly StringBuilder _sb = new StringBuilder(64);
 
@@ -82,11 +93,27 @@ public class RankPlateView
 		_rootObject = new GameObject($"RankPlate_{poolIndex}");
 		_rootTransform = _rootObject.transform;
 		_rootTransform.SetParent(parentTransform, worldPositionStays: false);
-		_avatarObject = new GameObject("AvatarIcon");
-		_avatarObject.layer = 5;
-		Canvas canvas = _avatarObject.AddComponent<Canvas>();
+
+		_canvasObject = new GameObject("PlateCanvas", typeof(RectTransform), typeof(Canvas), typeof(CurvedCanvasSettings));
+		_canvasObject.layer = 5;
+		_canvasRect = (RectTransform)_canvasObject.transform;
+		_canvasRect.SetParent(_rootTransform, worldPositionStays: false);
+		_canvasRect.sizeDelta = new Vector2(900f, 100f);
+		_canvasRect.pivot = new Vector2(0.5f, 0.5f);
+		_canvasRect.localPosition = Vector3.zero;
+		_canvasRect.localRotation = Quaternion.identity;
+		_canvasRect.localScale = new Vector3(UiScale, UiScale, UiScale);
+
+		Canvas canvas = _canvasObject.GetComponent<Canvas>();
 		canvas.renderMode = RenderMode.WorldSpace;
 		canvas.sortingOrder = 11;
+		canvas.additionalShaderChannels = AdditionalCanvasShaderChannels.TexCoord1 | AdditionalCanvasShaderChannels.TexCoord2;
+
+		CurvedCanvasSettings curved = _canvasObject.GetComponent<CurvedCanvasSettings>();
+		curved.SetRadius(0f);
+
+		_avatarObject = new GameObject("AvatarIcon", typeof(RectTransform));
+		_avatarObject.layer = 5;
 		_avatarImage = _avatarObject.AddComponent<ImageView>();
 		if (sharedUiNoGlowMaterial != null)
 		{
@@ -96,35 +123,42 @@ public class RankPlateView
 		((Graphic)(object)_avatarImage).raycastTarget = false;
 		((Image)(object)_avatarImage).preserveAspect = true;
 		_avatarRect = ((Graphic)(object)_avatarImage).rectTransform;
-		_avatarRect.SetParent(_rootTransform, worldPositionStays: false);
-		_avatarRect.sizeDelta = Vector2.one;
+		_avatarRect.SetParent(_canvasRect, worldPositionStays: false);
+		_avatarRect.sizeDelta = new Vector2(AvatarIconSizeUi, AvatarIconSizeUi);
 		_avatarRect.anchorMin = new Vector2(0.5f, 0.5f);
 		_avatarRect.anchorMax = new Vector2(0.5f, 0.5f);
 		_avatarRect.pivot = new Vector2(0.5f, 0.5f);
 		_avatarRect.localPosition = Vector3.zero;
 		_avatarRect.localRotation = Quaternion.identity;
-		_avatarRect.localScale = new Vector3(0.36f, 0.36f, 1f);
+		_avatarRect.localScale = Vector3.one;
 		_avatarObject.SetActive(value: false);
-		_upperShadowObj = new GameObject("UpperNameShadow");
-		_upperShadowTextMesh = _upperShadowObj.AddComponent<TextMeshPro>();
-		_upperShadowTextMesh.rectTransform.SetParent(_rootTransform, worldPositionStays: false);
-		ConfigureTmp(_upperShadowTextMesh, sharedFont, sharedOutlineMaterial, 2.3f, new Color(0f, 0f, 0f, 0.95f), 10);
-		_upperTextObj = new GameObject("UpperNameText");
-		_upperTextMesh = _upperTextObj.AddComponent<TextMeshPro>();
-		_upperTextMesh.rectTransform.SetParent(_rootTransform, worldPositionStays: false);
-		ConfigureTmp(_upperTextMesh, sharedFont, sharedOutlineMaterial, 2.3f, NormalRivalColor, 11);
-		_lowerShadowObj = new GameObject("LowerStatsShadow");
-		_lowerShadowTextMesh = _lowerShadowObj.AddComponent<TextMeshPro>();
-		_lowerShadowTextMesh.rectTransform.SetParent(_rootTransform, worldPositionStays: false);
-		ConfigureTmp(_lowerShadowTextMesh, sharedFont, sharedOutlineMaterial, 2f, new Color(0f, 0f, 0f, 0.95f), 10);
-		_lowerTextObj = new GameObject("LowerStatsText");
-		_lowerTextMesh = _lowerTextObj.AddComponent<TextMeshPro>();
-		_lowerTextMesh.rectTransform.SetParent(_rootTransform, worldPositionStays: false);
-		ConfigureTmp(_lowerTextMesh, sharedFont, sharedOutlineMaterial, 2f, NormalRivalColor, 11);
+
+#pragma warning disable CS0618
+		_upperShadowTextMesh = BeatSaberUI.CreateText<CurvedTextMeshPro>(_canvasRect, string.Empty, Vector2.zero, new Vector2(TextContainerWidthUi, TextContainerHeightUi));
+		_upperShadowObj = _upperShadowTextMesh.gameObject;
+		_upperShadowObj.name = "UpperNameShadow";
+		ConfigureTmp(_upperShadowTextMesh, sharedFont, sharedOutlineMaterial, 23f, new Color(0f, 0f, 0f, 0.95f));
+
+		_upperTextMesh = BeatSaberUI.CreateText<CurvedTextMeshPro>(_canvasRect, string.Empty, Vector2.zero, new Vector2(TextContainerWidthUi, TextContainerHeightUi));
+		_upperTextObj = _upperTextMesh.gameObject;
+		_upperTextObj.name = "UpperNameText";
+		ConfigureTmp(_upperTextMesh, sharedFont, sharedOutlineMaterial, 23f, NormalRivalColor);
+
+		_lowerShadowTextMesh = BeatSaberUI.CreateText<CurvedTextMeshPro>(_canvasRect, string.Empty, Vector2.zero, new Vector2(TextContainerWidthUi, TextContainerHeightUi));
+		_lowerShadowObj = _lowerShadowTextMesh.gameObject;
+		_lowerShadowObj.name = "LowerStatsShadow";
+		ConfigureTmp(_lowerShadowTextMesh, sharedFont, sharedOutlineMaterial, 20f, new Color(0f, 0f, 0f, 0.95f));
+
+		_lowerTextMesh = BeatSaberUI.CreateText<CurvedTextMeshPro>(_canvasRect, string.Empty, Vector2.zero, new Vector2(TextContainerWidthUi, TextContainerHeightUi));
+		_lowerTextObj = _lowerTextMesh.gameObject;
+		_lowerTextObj.name = "LowerStatsText";
+		ConfigureTmp(_lowerTextMesh, sharedFont, sharedOutlineMaterial, 20f, NormalRivalColor);
+#pragma warning restore CS0618
+
 		_rootObject.SetActive(value: false);
 	}
 
-	private static void ConfigureTmp(TextMeshPro tmp, TMP_FontAsset sharedFont, Material sharedMaterial, float fontSize, Color color, int sortingOrder)
+	private static void ConfigureTmp(CurvedTextMeshPro tmp, TMP_FontAsset sharedFont, Material sharedMaterial, float fontSize, Color color)
 	{
 		if (sharedFont != null)
 		{
@@ -139,11 +173,13 @@ public class RankPlateView
 		tmp.enableWordWrapping = false;
 		tmp.overflowMode = TextOverflowModes.Overflow;
 		tmp.richText = false;
+		tmp.raycastTarget = false;
 		tmp.color = color;
-		tmp.sortingOrder = sortingOrder;
 		RectTransform rectTransform = tmp.rectTransform;
+		rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+		rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
 		rectTransform.pivot = new Vector2(0.5f, 0.5f);
-		rectTransform.sizeDelta = new Vector2(8f, 0.5f);
+		rectTransform.sizeDelta = new Vector2(TextContainerWidthUi, TextContainerHeightUi);
 		rectTransform.localPosition = Vector3.zero;
 		rectTransform.localRotation = Quaternion.identity;
 		rectTransform.localScale = Vector3.one;
@@ -298,13 +334,13 @@ public class RankPlateView
 			}
 			if (isLeftSide)
 			{
-				_avatarRect.localPosition = new Vector3(-0.18f, 0f, 0f);
+				_avatarRect.localPosition = new Vector3(-18f, 0f, 0f);
 				_avatarRect.localRotation = Quaternion.Euler(0f, -15f, 0f);
 				num2 = -0.44f;
 			}
 			else
 			{
-				_avatarRect.localPosition = new Vector3(0.18f, 0f, 0f);
+				_avatarRect.localPosition = new Vector3(18f, 0f, 0f);
 				_avatarRect.localRotation = Quaternion.Euler(0f, -15f, 0f);
 				num2 = 0.44f;
 			}
@@ -371,15 +407,17 @@ public class RankPlateView
 		}
 	}
 
-	private static void ApplyLineAlignmentAndPosition(TextMeshPro mainTmp, TextMeshPro shadowTmp, bool rightAligned, float anchorX, float localY)
+	private static void ApplyLineAlignmentAndPosition(CurvedTextMeshPro mainTmp, CurvedTextMeshPro shadowTmp, bool rightAligned, float anchorX, float localY)
 	{
 		TextAlignmentOptions alignment = (rightAligned ? TextAlignmentOptions.MidlineRight : TextAlignmentOptions.MidlineLeft);
-		float num = 4f;
-		float num2 = (rightAligned ? (anchorX - num) : (anchorX + num));
+		float halfWidthUi = TextContainerWidthUi * 0.5f;
+		float anchorXUi = anchorX * UiUnitsPerMeter;
+		float posXUi = (rightAligned ? (anchorXUi - halfWidthUi) : (anchorXUi + halfWidthUi));
+		float posYUi = localY * UiUnitsPerMeter;
 		mainTmp.alignment = alignment;
-		mainTmp.rectTransform.localPosition = new Vector3(num2, localY, 0f);
+		mainTmp.rectTransform.anchoredPosition3D = new Vector3(posXUi, posYUi, 0f);
 		shadowTmp.alignment = alignment;
-		shadowTmp.rectTransform.localPosition = new Vector3(num2 + ShadowOffset.x, localY + ShadowOffset.y, ShadowOffset.z);
+		shadowTmp.rectTransform.anchoredPosition3D = new Vector3(posXUi + ShadowOffsetUi.x, posYUi + ShadowOffsetUi.y, 0f);
 	}
 
 	private string BuildUpperNameString(bool showPlayerName, bool isLeftSide)

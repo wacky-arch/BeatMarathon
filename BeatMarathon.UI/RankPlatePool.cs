@@ -4,8 +4,11 @@ using System.Globalization;
 using System.Linq;
 using BeatMarathon.Models;
 using BeatMarathon.Services;
+using BeatSaberMarkupLanguage;
+using HMUI;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 using Zenject;
 
 namespace BeatMarathon.UI;
@@ -26,7 +29,7 @@ public class RankPlatePool : IInitializable, IDisposable
 
 	private GameObject _verticalBarCenterMarkerObj;
 
-	private TextMeshPro _verticalBarCenterMarkerText;
+	private CurvedTextMeshPro _verticalBarCenterMarkerText;
 
 	private int _lastCenterMarkerAccCent = int.MinValue;
 
@@ -75,11 +78,45 @@ public class RankPlatePool : IInitializable, IDisposable
 	{
 		try
 		{
-			TMP_FontAsset[] source = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
-			_sharedFont = source.FirstOrDefault((TMP_FontAsset f) => f != null && f.name.IndexOf("Teko-Medium SDF No Glow", StringComparison.OrdinalIgnoreCase) >= 0) ?? source.FirstOrDefault((TMP_FontAsset f) => f != null && f.name.IndexOf("Teko-Medium", StringComparison.OrdinalIgnoreCase) >= 0) ?? source.FirstOrDefault((TMP_FontAsset f) => f != null);
-			if (_sharedFont != null && _sharedFont.material != null)
+			Material baseUiMaterial = null;
+			GameObject probeGo = new GameObject("BeatMarathon_FontProbe", typeof(RectTransform));
+			try
 			{
-				_sharedOutlineMaterial = new Material(_sharedFont.material);
+				probeGo.SetActive(value: false);
+#pragma warning disable CS0618
+				CurvedTextMeshPro template = BeatSaberUI.CreateText<CurvedTextMeshPro>((RectTransform)probeGo.transform, string.Empty, Vector2.zero, new Vector2(10f, 10f));
+#pragma warning restore CS0618
+				if ((object)template != null)
+				{
+					_sharedFont = template.font;
+					baseUiMaterial = template.fontSharedMaterial;
+				}
+			}
+			catch (Exception ex)
+			{
+				Plugin.Log?.Warn("[RankPlatePool] BeatSaberUI font probe warning: " + ex.Message);
+			}
+			finally
+			{
+				UnityEngine.Object.Destroy(probeGo);
+			}
+
+			if (_sharedFont == null)
+			{
+				_sharedFont = BeatSaberUI.MainTextFont;
+			}
+			if (_sharedFont == null)
+			{
+				TMP_FontAsset[] source = Resources.FindObjectsOfTypeAll<TMP_FontAsset>();
+				_sharedFont = source.FirstOrDefault((TMP_FontAsset f) => f != null && f.name.IndexOf("Teko-Medium SDF No Glow", StringComparison.OrdinalIgnoreCase) >= 0)
+					?? source.FirstOrDefault((TMP_FontAsset f) => f != null && f.name.IndexOf("Teko-Medium", StringComparison.OrdinalIgnoreCase) >= 0)
+					?? source.FirstOrDefault((TMP_FontAsset f) => f != null);
+			}
+
+			Material sourceMat = baseUiMaterial ?? _sharedFont?.material;
+			if (sourceMat != null)
+			{
+				_sharedOutlineMaterial = new Material(sourceMat);
 				_sharedOutlineMaterial.name = "RankMarathon_SharedTMPOutline";
 				if (_sharedOutlineMaterial.HasProperty("_OutlineWidth"))
 				{
@@ -114,12 +151,27 @@ public class RankPlatePool : IInitializable, IDisposable
 
 	private void CreateVerticalBarCenterMarker()
 	{
-		_verticalBarCenterMarkerObj = new GameObject("VerticalBar_YouMarker");
-		_verticalBarCenterMarkerObj.transform.SetParent(_verticalBarContainerTransform, worldPositionStays: false);
-		_verticalBarCenterMarkerObj.transform.localPosition = Vector3.zero;
-		_verticalBarCenterMarkerObj.transform.localRotation = Quaternion.identity;
-		_verticalBarCenterMarkerObj.transform.localScale = new Vector3(0.42f, 0.42f, 0.42f);
-		_verticalBarCenterMarkerText = _verticalBarCenterMarkerObj.AddComponent<TextMeshPro>();
+		_verticalBarCenterMarkerObj = new GameObject("VerticalBar_YouMarker", typeof(RectTransform), typeof(Canvas), typeof(CurvedCanvasSettings));
+		_verticalBarCenterMarkerObj.layer = 5;
+		RectTransform markerRect = (RectTransform)_verticalBarCenterMarkerObj.transform;
+		markerRect.SetParent(_verticalBarContainerTransform, worldPositionStays: false);
+		markerRect.sizeDelta = new Vector2(600f, 50f);
+		markerRect.pivot = new Vector2(0.5f, 0.5f);
+		markerRect.localPosition = Vector3.zero;
+		markerRect.localRotation = Quaternion.identity;
+		markerRect.localScale = new Vector3(0.0042f, 0.0042f, 0.0042f);
+
+		Canvas markerCanvas = _verticalBarCenterMarkerObj.GetComponent<Canvas>();
+		markerCanvas.renderMode = RenderMode.WorldSpace;
+		markerCanvas.sortingOrder = 11;
+		markerCanvas.additionalShaderChannels = AdditionalCanvasShaderChannels.TexCoord1 | AdditionalCanvasShaderChannels.TexCoord2;
+
+		CurvedCanvasSettings curved = _verticalBarCenterMarkerObj.GetComponent<CurvedCanvasSettings>();
+		curved.SetRadius(0f);
+
+#pragma warning disable CS0618
+		_verticalBarCenterMarkerText = BeatSaberUI.CreateText<CurvedTextMeshPro>(markerRect, "─── ◄ YOU ► ───", Vector2.zero, new Vector2(600f, 50f));
+#pragma warning restore CS0618
 		if (_sharedFont != null)
 		{
 			_verticalBarCenterMarkerText.font = _sharedFont;
@@ -128,12 +180,17 @@ public class RankPlatePool : IInitializable, IDisposable
 		{
 			_verticalBarCenterMarkerText.fontSharedMaterial = _sharedOutlineMaterial;
 		}
-		_verticalBarCenterMarkerText.fontSize = 2.5f;
+		_verticalBarCenterMarkerText.fontSize = 25f;
 		_verticalBarCenterMarkerText.alignment = TextAlignmentOptions.Center;
 		_verticalBarCenterMarkerText.enableWordWrapping = false;
 		_verticalBarCenterMarkerText.overflowMode = TextOverflowModes.Overflow;
+		_verticalBarCenterMarkerText.raycastTarget = false;
 		_verticalBarCenterMarkerText.color = new Color(1f, 0.92f, 0.25f, 1f);
-		_verticalBarCenterMarkerText.text = "─── ◄ YOU ► ───";
+		_verticalBarCenterMarkerText.rectTransform.anchorMin = new Vector2(0.5f, 0.5f);
+		_verticalBarCenterMarkerText.rectTransform.anchorMax = new Vector2(0.5f, 0.5f);
+		_verticalBarCenterMarkerText.rectTransform.pivot = new Vector2(0.5f, 0.5f);
+		_verticalBarCenterMarkerText.rectTransform.localScale = Vector3.one;
+		_verticalBarCenterMarkerText.rectTransform.localRotation = Quaternion.identity;
 		_verticalBarCenterMarkerObj.SetActive(value: false);
 	}
 

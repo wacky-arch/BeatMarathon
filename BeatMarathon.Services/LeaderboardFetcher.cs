@@ -8,6 +8,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 using BeatMarathon.Models;
+#if BS_1_44_1
+using OculusStudios.Platform.Core;
+#endif
 using SongCore;
 using Steamworks;
 using UnityEngine;
@@ -19,7 +22,11 @@ public class LeaderboardFetcher : IInitializable, IDisposable
 {
 	private static readonly HttpClient SharedHttpClient = CreateHttpClient();
 
+#if BS_1_44_1
+	private readonly IPlatform _platform;
+#else
 	private readonly IPlatformUserModel _platformUserModel;
+#endif
 
 	private readonly AvatarCacheService _avatarCacheService;
 
@@ -83,16 +90,29 @@ public class LeaderboardFetcher : IInitializable, IDisposable
 			AutomaticDecompression = (DecompressionMethods.GZip | DecompressionMethods.Deflate)
 		});
 		httpClient.Timeout = TimeSpan.FromSeconds(8.0);
+#if BS_1_44_1
+		httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("BeatMarathon/1.0.0 (BeatSaber/1.44.1)");
+#else
 		httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("BeatMarathon/1.0.0 (BeatSaber/1.40.8)");
+#endif
 		return httpClient;
 	}
 
+#if BS_1_44_1
+	public LeaderboardFetcher([InjectOptional] IPlatform platform, AvatarCacheService avatarCacheService, PluginConfig config)
+	{
+		_platform = platform;
+		_avatarCacheService = avatarCacheService;
+		_config = config;
+	}
+#else
 	public LeaderboardFetcher([InjectOptional] IPlatformUserModel platformUserModel, AvatarCacheService avatarCacheService, PluginConfig config)
 	{
 		_platformUserModel = platformUserModel;
 		_avatarCacheService = avatarCacheService;
 		_config = config;
 	}
+#endif
 
 	public void Initialize()
 	{
@@ -354,6 +374,20 @@ public class LeaderboardFetcher : IInitializable, IDisposable
 		}
 		try
 		{
+#if BS_1_44_1
+			if (_platform?.user != null)
+			{
+				if (string.IsNullOrEmpty(_localPlayerId) && _platform.user.userId != 0UL)
+				{
+					_localPlayerId = _platform.user.userId.ToString(CultureInfo.InvariantCulture);
+				}
+				if (!string.IsNullOrEmpty(_platform.user.displayName))
+				{
+					_localPlayerName = _platform.user.displayName;
+				}
+			}
+			await Task.CompletedTask;
+#else
 			if (_platformUserModel != null)
 			{
 				Task<UserInfo> userInfoTask = _platformUserModel.GetUserInfo(token);
@@ -383,6 +417,7 @@ public class LeaderboardFetcher : IInitializable, IDisposable
 				{
 				}
 			}
+#endif
 		}
 		catch (Exception ex)
 		{

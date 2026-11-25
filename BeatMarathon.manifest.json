@@ -3,7 +3,7 @@
   "id": "BeatMarathon",
   "name": "BeatMarathon",
   "author": "BeatMarathon",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Visualizes real-time accuracy rank progression against BeatLeader / ScoreSaber rivals in a marathon road-sign or vertical bar style without GC spikes.",
   "gameVersion": "1.40.8",
   "dependsOn": {

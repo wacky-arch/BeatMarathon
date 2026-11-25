@@ -1,10 +1,10 @@
 # BeatMarathon
 
-Beat Saber 1.40.8 向け リアルタイム・ライバル順位可視化MODです。  
+Beat Saber `1.40.8` / `1.44.1` 向け リアルタイム・ライバル順位可視化MODです。  
 BeatLeader および ScoreSaber のランキングデータを事前取得し、譜面プレイ中の現在精度（Accuracy）に応じて、ライバルプレイヤーたちとの順位変動や抜きつ抜かれつの攻防を「マラソン大会のロードサイン（看板）」または「バー表示」形式でVR空間内にリアルタイム表示します。
 ScorSaberからデータ取得する方が安定します。
 
-A real-time rival ranking visualization mod for Beat Saber 1.40.8.  
+A real-time rival ranking visualization mod for Beat Saber `1.40.8` / `1.44.1`.  
 Fetches leaderboard data from BeatLeader and ScoreSaber in advance, visualizing rank progressions and position overtakes against rival players in real time via "Marathon Road Sign" or "Vertical Bar" styles in VR.
 
 ![BeatMarathon Screenshot](docs/screenshot.jpg)
@@ -50,5 +50,5 @@ Fetches leaderboard data from BeatLeader and ScoreSaber in advance, visualizing 
 ---
 
 ## 📦 インストール方法 / Installation
-1. `BeatMarathon.dll` を Beat Saber の `Plugins` フォルダへ配置してください。
-2. Place `BeatMarathon.dll` into your Beat Saber `Plugins` folder.
+1. [Releases](../../releases) からお使いの Beat Saber バージョン（`bs1.40.8` または `bs1.44.1`）向けの ZIP をダウンロードし、中の `Plugins/BeatMarathon.dll` を Beat Saber の `Plugins` フォルダへ配置してください。
+2. Download the ZIP matching your Beat Saber version (`bs1.40.8` or `bs1.44.1`) from [Releases](../../releases) and place `BeatMarathon.dll` into your Beat Saber `Plugins` folder.
